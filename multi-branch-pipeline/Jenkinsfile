@@ -55,25 +55,10 @@ pipeline {
                 sh """
                 echo "Running Code Analysis"
                 """
-            }
+            
         }
-
-        stage('Deploy Code To Dev & QA') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                sh """
-                echo "Building Artifact for Dev Environment"
-                """
-                sh """
-                echo "Deploying to Dev Environment"
-                """
-                sh """
-                echo "Deploying to QA Environment"
-                """
-            }
-        }
+    }       
+            
 
         stage('Deploy Code to Staging and Pre-Prod') {
             when {
