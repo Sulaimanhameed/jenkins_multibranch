@@ -16,81 +16,104 @@ pipeline {
     }
     options {
         buildDiscarder logRotator( 
-            daysToKeepStr: '16', 
-            numToKeepStr: '10'
-        )
+                    daysToKeepStr: '16', 
+                    numToKeepStr: '10'
+            )
     }
 
     stages {
-        
         stage('Cleanup Workspace') {
             steps {
                 cleanWs()
-                sh """
-                echo "Cleaned Up Workspace For Project"
-                """
+                sh "echo 'Cleaned Up Workspace For Project'"
             }
         }
 
         stage('Code Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM', 
-                    branches: [[name: '*/main']], 
-                    userRemoteConfigs: [[url: 'https://github.com/spring-projects/spring-petclinic.git']]
-                ])
+                checkout scm
             }
         }
 
-        stage('Unit Testing') {
-            steps {
-                sh """
-                echo "Running Unit Tests"
-                """
-            }
-        }
-
-        stage('Code Analysis') {
-            steps {
-                sh """
-                echo "Running Code Analysis"
-                """
-            }
-        }
-
-        stage('Deploy Code To Dev & QA') {
+        stage('PR Build and Test') {
             when {
-                branch 'develop'
+                changeRequest()
             }
-            steps {
-                sh """
-                echo "Building Artifact for Dev Environment"
-                """
-                sh """
-                echo "Deploying to Dev Environment"
-                """
-                sh """
-                echo "Deploying to QA Environment"
-                """
+            stages {
+                stage('Unit Testing') {
+                    steps {
+                        sh "echo 'Running Unit Tests for PR'"
+                        // Add actual unit test commands here
+                    }
+                }
+
+                stage('Code Analysis') {
+                    steps {
+                        sh "echo 'Running Code Analysis for PR'"
+                        // Add actual code analysis commands here
+                    }
+                }
+
+                stage('Build Code') {
+                    steps {
+                        sh "echo 'Building Artifact for PR'"
+                        // Add actual build commands here
+                    }
+                }
             }
         }
 
-        stage('Deploy Code to Staging and Pre-Prod') {
+        stage('Develop Branch Tasks') {
             when {
-                branch 'main'
+                allOf {
+                    branch 'develop'
+                    not { changeRequest() }
+                }
             }
-            steps {
-                sh """
-                echo "Building Artifact for Staging and Pre-Prod Environments"
-                """
-                sh """
-                echo "Deploying to Staging Environment"
-                """
-                sh """
-                echo "Deploying to Pre-Prod Environment"
-                """
+            stages {
+                stage('Build for Develop') {
+                    steps {
+                        sh "echo 'Building for Develop'"
+                        // Add develop build steps
+                    }
+                }
+                stage('Deploy to Dev Environment') {
+                    steps {
+                        sh "echo 'Deploying to Dev Environment'"
+                        // Add dev deployment steps
+                    }
+                }
             }
         }
 
-    }   
+        stage('Main Branch Tasks') {
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+            stages {
+                stage('Build for Production') {
+                    steps {
+                        sh "echo 'Building for Production'"
+                        // Add production build steps
+                    }
+                }
+                stage('Deploy to Pre-prod') {
+                    steps {
+                        sh "echo 'Deploying to Pre-prod Environment'"
+                        // Add pre-prod deployment steps
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "echo 'Pipeline Completed'"
+            // Add any cleanup or notification steps here
+        }
+    }
 }
