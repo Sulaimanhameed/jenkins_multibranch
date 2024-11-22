@@ -1,109 +1,65 @@
+@Library('jenkins-shared-library@master') _
 pipeline {
     agent {
-        kubernetes {
-            yaml '''
-                apiVersion: v1
-                kind: Pod
-                spec:
-                  containers:
-                  - name: maven
-                    image: maven:3.8.4-openjdk-17
-                    command:
-                    - cat
-                    tty: true
-            '''
+        label 'docker-build-agent'
         }
-    }
-    options {
-        buildDiscarder logRotator( 
-                    daysToKeepStr: '16', 
-                    numToKeepStr: '10'
-            )
-    }
 
     stages {
-        stage('Cleanup Workspace') {
+        stage('Git Checkout') {
             steps {
-                cleanWs()
-                sh "echo 'Cleaned Up Workspace For Project'"
+                gitCheckout(
+                    branch: "main",
+                    url: "https://github.com/jenkins-organization-app/kube-petclinc-app.git"
+                )
             }
         }
-
-        stage('Code Checkout') {
+        stage('Lint Dockerfile') {
             steps {
-                checkout scm
+                container('hadolint') {
+                    hadoLint()
+                }
             }
         }
-
-        stage('PR Build and Test') {
-            when {
-                changeRequest()
-            }
-            stages {
-                stage('Unit Testing') {
-                    steps {
-                        sh "echo 'Running Unit Tests for PR'"
-                        // Add actual unit test commands here
-                    }
-                }
-
-                stage('Code Analysis') {
-                    steps {
-                        sh "echo 'Running Code Analysis for PR'"
-                        // Add actual code analysis commands here
-                    }
-                }
-
-                stage('Build Code') {
-                    steps {
-                        sh "echo 'Building Artifact for PR'"
-                        // Add actual build commands here
+        stage('Build with Maven') {
+            steps {
+                container('maven') {
+                    script {
+                        maven.build()
                     }
                 }
             }
         }
-
-        stage('Develop Branch Tasks') {
-            when {
-                allOf {
-                    branch 'develop'
-                    not { changeRequest() }
-                }
-            }
-            stages {
-                stage('Build for Develop') {
-                    steps {
-                        sh "echo 'Building for Develop'"
-                        // Add develop build steps
-                    }
-                }
-                stage('Deploy to Dev Environment') {
-                    steps {
-                        sh "echo 'Deploying to Dev Environment'"
-                        // Add dev deployment steps
+        stage('Build Docker Image') {
+            steps {
+                container('kaniko') {
+                    script {
+                        kaniko.build()
                     }
                 }
             }
         }
-
-        stage('Main Branch Tasks') {
+        stage('Trivy Scan') {
+            steps {
+                    container('trivy') {
+                        script {
+                            trivyScan.kaniko()
+                        }
+                    }
+                }
+        }
+        stage('Push Docker Image') {
             when {
                 allOf {
                     branch 'main'
-                    not { changeRequest() }
-                }
-            }
-            stages {
-                stage('Build for Production') {
-                    steps {
-                        sh "echo 'Building for Production'"
-                        // Add production build steps
+                    not {
+                        changeRequest()
                     }
                 }
-                stage('Deploy to Pre-prod') {
-                    steps {
-                        sh "echo 'Deploying to Pre-prod Environment'"
-                        // Add pre-prod deployment steps
+            }
+            steps {
+                container('kaniko') {
+                    script {
+                        kaniko.push('myubuntu890/jenkins-java-app', "1.0.${BUILD_NUMBER}", 'docker-credentials')
                     }
                 }
             }
@@ -112,8 +68,9 @@ pipeline {
 
     post {
         always {
-            sh "echo 'Pipeline Completed'"
-            // Add any cleanup or notification steps here
+            script {
+                trivyNotification('trivy-report.html', 'sulaiman@crunchops.com')
+            }
         }
     }
 }
