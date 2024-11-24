@@ -10,7 +10,7 @@ pipeline {
             steps {
                 gitCheckout(
                     branch: "main",
-                    url: "https://github.com/jenkins-organization-app/kube-petclinc-app.git"
+                    url: "https://github.com/spring-projects/spring-boot.git"
                 )
             }
         }
