@@ -10,7 +10,7 @@ pipeline {
             steps {
                 gitCheckout(
                     branch: "main",
-                    url: "https://github.com/spring-projects/spring-boot.git"
+                    url: "https://github.com/jenkins-organization-app/kube-petclinc-app.git"
                 )
             }
         }
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 container('kaniko') {
                     script {
-                        kaniko.push('myubuntu890/jenkins-java-app', "1.0.${BUILD_NUMBER}", 'docker-credentials')
+                        kaniko.push('myubuntu890/jenkins-java-app', "2.0.${BUILD_NUMBER}", 'docker-credentials')
                     }
                 }
             }
